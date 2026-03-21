@@ -1,6 +1,6 @@
 # Restaurant API
 
-API REST para la gestión de pedidos, facturación y reportes en un restaurante. Desarrollada con Flask y SQLite.
+Diseñada para la gestión de pedidos, facturación y reportes en un restaurante. Desarrollada con Flask y SQLite.
 
 ## Características
 
