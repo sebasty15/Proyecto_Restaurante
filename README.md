@@ -83,7 +83,7 @@ Dentro de este, están las secciones de conexión y CRUD con la base de datos no
 
 json
 {
-  "_id": "E001",
+  "_id": "m001",
   "idCliente": 123,
   "canal": "email",
   "campana": "verano2026",
