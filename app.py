@@ -4,6 +4,7 @@ from flask_cors import CORS
 from flask_sqlalchemy import SQLAlchemy
 import datetime
 from dotenv import load_dotenv
+from pymongo import MongoClient
 
 # Crear la aplicación Flask
 app = Flask(__name__)
@@ -11,14 +12,21 @@ CORS(app)
 
 # Configuración de la base de datos SQLite
 basedir = os.path.abspath(os.path.dirname(__file__))
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///' + os.path.join(basedir, 'RestauranteFinal.db')
+app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///' + os.path.join(basedir, 'RestauranteNoSQL.db')
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 db = SQLAlchemy(app)
 
-# -------------------- MODELOS (adaptados al esquema SQLite) --------------------
+# -------------------- CONFIGURACIÓN MONGODB (NoSQL) --------------------
+load_dotenv()
+MONGO_URI = os.getenv('MONGO_URI', 'mongodb://localhost:27017/')
+mongo_client = MongoClient(MONGO_URI)
+mongo_db = mongo_client['restaurante_promociones']
+mensajes_collection = mongo_db['mensajes_promocionales']
+
+# -------------------- MODELOS SQL --------------------
 class Usuario(db.Model):
-    __tablename__ = 'usuario'
+    __tablename__ = 'Usuario'
     id = db.Column(db.Integer, primary_key=True)
     nombre = db.Column(db.String(100), nullable=False)
     apellido = db.Column(db.String(100))
@@ -29,30 +37,30 @@ class Usuario(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.datetime.utcnow)
 
 class Categoria(db.Model):
-    __tablename__ = 'categoria'
+    __tablename__ = 'Categoria'
     IdCategoria = db.Column(db.Integer, primary_key=True)
     NombreCategoria = db.Column(db.String(50), unique=True, nullable=False)
 
 class Producto(db.Model):
-    __tablename__ = 'producto'
+    __tablename__ = 'Producto'
     IdProducto = db.Column(db.Integer, primary_key=True)
-    IdCategoria = db.Column(db.Integer, db.ForeignKey('categoria.IdCategoria'), nullable=False)
+    IdCategoria = db.Column(db.Integer, db.ForeignKey('Categoria.IdCategoria'), nullable=False)
     NombreProducto = db.Column(db.String(100), nullable=False)
     Precio = db.Column(db.Numeric(10,2), nullable=False)
 
     categoria = db.relationship('Categoria', backref='productos')
 
 class Mesa(db.Model):
-    __tablename__ = 'mesa'
+    __tablename__ = 'Mesa'
     IdMesa = db.Column(db.Integer, primary_key=True)
     Capacidad = db.Column(db.Integer, nullable=False)
     Estado = db.Column(db.String(20), default='libre')
 
 class Pedido(db.Model):
-    __tablename__ = 'pedido'
+    __tablename__ = 'Pedido'
     IdPedido = db.Column(db.Integer, primary_key=True)
-    IdMeso = db.Column(db.Integer, db.ForeignKey('usuario.id'), nullable=False)
-    IdMesa = db.Column(db.Integer, db.ForeignKey('mesa.IdMesa'), nullable=False)
+    IdMeso = db.Column(db.Integer, db.ForeignKey('Usuario.id'), nullable=False)
+    IdMesa = db.Column(db.Integer, db.ForeignKey('Mesa.IdMesa'), nullable=False)
     Notas = db.Column(db.Text)
     FechaHora = db.Column(db.DateTime, default=datetime.datetime.utcnow)
     Estado = db.Column(db.String(20), default='pendiente')
@@ -62,26 +70,41 @@ class Pedido(db.Model):
     mesa = db.relationship('Mesa')
 
 class DetallePedido(db.Model):
-    __tablename__ = 'detallepedido'
+    __tablename__ = 'DetallePedido'
     IdDetalle = db.Column(db.Integer, primary_key=True)
-    IdPedido = db.Column(db.Integer, db.ForeignKey('pedido.IdPedido'), nullable=False)
-    IdProducto = db.Column(db.Integer, db.ForeignKey('producto.IdProducto'), nullable=False)
+    IdPedido = db.Column(db.Integer, db.ForeignKey('Pedido.IdPedido'), nullable=False)
+    IdProducto = db.Column(db.Integer, db.ForeignKey('Producto.IdProducto'), nullable=False)
     Cantidad = db.Column(db.Integer, nullable=False)
     Subtotal = db.Column(db.Numeric(10,2), default=0)
 
     pedido = db.relationship('Pedido', backref='detalles')
     producto = db.relationship('Producto')
 
+class Cliente(db.Model):
+    __tablename__ = 'Clientes'
+    IdCliente = db.Column(db.Integer, primary_key=True)
+    TipoDocumento = db.Column(db.String(20), nullable=False)
+    NumeroDocumento = db.Column(db.String(50), unique=True, nullable=False)
+    RazonSocial = db.Column(db.String(150))
+    Nombre = db.Column(db.String(100), nullable=False)
+    Apellido = db.Column(db.String(100))
+    Email = db.Column(db.String(100))
+    Telefono = db.Column(db.String(20))
+    Direccion = db.Column(db.String(200))
+    Ciudad = db.Column(db.String(100))
+
 class Factura(db.Model):
-    __tablename__ = 'factura'
+    __tablename__ = 'Factura'
     IdFactura = db.Column(db.Integer, primary_key=True)
-    IdPedido = db.Column(db.Integer, db.ForeignKey('pedido.IdPedido'), nullable=False)
+    IdPedido = db.Column(db.Integer, db.ForeignKey('Pedido.IdPedido'), nullable=False)
+    IdCliente = db.Column(db.Integer, db.ForeignKey('Clientes.IdCliente'), nullable=False)
     FechaHora = db.Column(db.DateTime, default=datetime.datetime.utcnow)
     MetodoPago = db.Column(db.String(20))
     ServicioVoluntario = db.Column(db.Numeric(10,2), default=0)
     TotalFactura = db.Column(db.Numeric(10,2), nullable=False)
 
     pedido = db.relationship('Pedido', backref='facturas')
+    cliente = db.relationship('Cliente', backref='facturas')
 
 # -------------------- RUTAS (sin autenticación) --------------------
 @app.route('/')
@@ -169,7 +192,7 @@ def eliminar_producto(id):
 def crear_pedido():
     data = request.get_json()
     id_mesa = data.get('IdMesa')
-    id_mesero = data.get('IdMeso')  # Ahora se envía en el cuerpo
+    id_mesero = data.get('IdMeso')
     items = data.get('productos')
     notas = data.get('Notas', '')
     if not id_mesa or not items or not id_mesero:
@@ -181,12 +204,10 @@ def crear_pedido():
     if mesa.Estado != 'libre':
         return jsonify({"mensaje": "La mesa no está libre"}), 400
 
-    # Verificar que el mesero existe
     mesero = Usuario.query.get(id_mesero)
     if not mesero or mesero.rol != 'mesero':
         return jsonify({"mensaje": "Mesero inválido"}), 400
 
-    # Crear pedido
     pedido = Pedido(
         IdMeso=id_mesero,
         IdMesa=id_mesa,
@@ -215,10 +236,7 @@ def crear_pedido():
         total += subtotal
 
     pedido.TotalPedido = total
-
-    # Cambiar estado de mesa a ocupada
     mesa.Estado = 'ocupada'
-
     db.session.commit()
     return jsonify({
         "IdPedido": pedido.IdPedido,
@@ -275,12 +293,13 @@ def actualizar_estado_pedido(id):
 def generar_factura():
     data = request.get_json()
     id_pedido = data.get('IdPedido')
+    id_cliente = data.get('IdCliente')
     id_cajero = data.get('IdCajero')
     servicio_voluntario = data.get('ServicioVoluntario', 0)
     metodo_pago = data.get('MetodoPago')
 
-    if not id_pedido or not id_cajero:
-        return jsonify({"mensaje": "ID de pedido y cajero requeridos"}), 400
+    if not id_pedido or not id_cliente or not id_cajero:
+        return jsonify({"mensaje": "ID de pedido, cliente y cajero requeridos"}), 400
 
     pedido = Pedido.query.get(id_pedido)
     if not pedido:
@@ -288,7 +307,10 @@ def generar_factura():
     if pedido.Estado != 'entregado':
         return jsonify({"mensaje": "El pedido debe estar entregado para facturar"}), 400
 
-    # Verificar cajero
+    cliente = Cliente.query.get(id_cliente)
+    if not cliente:
+        return jsonify({"mensaje": "Cliente no encontrado"}), 404
+
     cajero = Usuario.query.get(id_cajero)
     if not cajero or cajero.rol != 'cajero':
         return jsonify({"mensaje": "Cajero inválido"}), 400
@@ -297,16 +319,14 @@ def generar_factura():
 
     factura = Factura(
         IdPedido=id_pedido,
+        IdCliente=id_cliente,
         MetodoPago=metodo_pago,
         ServicioVoluntario=servicio_voluntario,
         TotalFactura=total
     )
     db.session.add(factura)
 
-    # Cambiar estado del pedido a facturado
     pedido.Estado = 'facturado'
-
-    # Cambiar estado de la mesa a 'en proceso de pago'
     mesa = Mesa.query.get(pedido.IdMesa)
     if mesa:
         mesa.Estado = 'en proceso de pago'
@@ -332,7 +352,6 @@ def pagar_factura(id):
 
     factura.MetodoPago = metodo_pago
 
-    # Liberar mesa
     pedido = Pedido.query.get(factura.IdPedido)
     if pedido:
         mesa = Mesa.query.get(pedido.IdMesa)
@@ -376,6 +395,47 @@ def reporte_ventas():
         "cantidad_facturas": cantidad_facturas,
         "platos_mas_vendidos": platos_mas_vendidos
     }), 200
+
+# -------------------- ENDPOINT COMBINADO SQL + NoSQL --------------------
+@app.route('/api/clientes/<int:id_cliente>/perfil-completo', methods=['GET'])
+def perfil_completo_cliente(id_cliente):
+    # 1. Datos del cliente desde SQL
+    cliente = Cliente.query.get(id_cliente)
+    if not cliente:
+        return jsonify({"error": "Cliente no encontrado"}), 404
+
+    # 2. Facturas del cliente desde SQL
+    facturas = Factura.query.filter_by(IdCliente=id_cliente).all()
+    facturas_list = [{
+        "IdFactura": f.IdFactura,
+        "IdPedido": f.IdPedido,
+        "FechaHora": f.FechaHora.isoformat() if f.FechaHora else None,
+        "MetodoPago": f.MetodoPago,
+        "ServicioVoluntario": float(f.ServicioVoluntario) if f.ServicioVoluntario else 0,
+        "TotalFactura": float(f.TotalFactura)
+    } for f in facturas]
+
+    # 3. Mensajes promocionales desde MongoDB
+    mensajes = list(mensajes_collection.find({'idCliente': id_cliente}))
+    for msg in mensajes:
+        msg['_id'] = str(msg['_id'])
+
+    return jsonify({
+        "cliente": {
+            "IdCliente": cliente.IdCliente,
+            "TipoDocumento": cliente.TipoDocumento,
+            "NumeroDocumento": cliente.NumeroDocumento,
+            "RazonSocial": cliente.RazonSocial,
+            "Nombre": cliente.Nombre,
+            "Apellido": cliente.Apellido,
+            "Email": cliente.Email,
+            "Telefono": cliente.Telefono,
+            "Direccion": cliente.Direccion,
+            "Ciudad": cliente.Ciudad
+        },
+        "facturas": facturas_list,
+        "mensajes_promocionales": mensajes
+    })
 
 # -------------------- CREAR TABLAS (si no existen) --------------------
 with app.app_context():
