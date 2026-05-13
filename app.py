@@ -810,6 +810,8 @@ with app.app_context():
         print(f"✅ Usuario administrador creado: {admin_email} / {admin_password}")
     else:
         print("ℹ️  Ya existe un usuario administrador.")
+        print("Usuario: " + admin_email)
+        print("Contraseña: " + admin_password)
 
 if __name__ == '__main__':
     app.run(debug=True, port=5000)
