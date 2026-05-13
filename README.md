@@ -26,7 +26,7 @@ Diseñada para la gestión de pedidos, facturación, reportes y envío de mensaj
    bash
    python -m venv venv
    venv\Scripts\activate
-   ![1](1.jpeg)
+   ![1](img/1.jpeg)
 
 2. Instalar dependencias  
    bash
