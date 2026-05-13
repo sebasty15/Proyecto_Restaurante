@@ -19,6 +19,8 @@ Diseñada para la gestión de pedidos, facturación, reportes y envío de mensaj
 - SQLite (base de datos relacional)
 - Base de datos NoSQL documental (MongoDB)
 - Flask-CORS
+- JWT & Bcrypt
+- Postman
 
 ## Instalación y ejecución local
 
