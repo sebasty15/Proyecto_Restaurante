@@ -31,28 +31,28 @@ Diseñada para la gestión de pedidos, facturación, reportes y envío de mensaj
 2. Instalar dependencias  
    bash
    pip install -r requirements.txt
-   ![2](2.jpeg)
+   ![2](img/2.jpeg)
 
 3. Ejecutar el archivo `init_db.py`  
    bash
    python init_db.py
-   ![3](3.jpeg)
+   ![3](img/3.jpeg)
 
 4. Ejecutar el archivo `app.py`  
    bash
    python app.py
-   ![4](4.jpeg)
+   ![4](img/4.jpeg)
 
 5. Probar las distintas rutas definidas en la app.py
    /login
    /registro
    /panel
-   ![5](5.jpeg)
+   ![5](img/5.jpeg)
 
 
 6. Probar los endpoints  
    Puedes usar Postman para probar los diferentes endpoints.
-   ![6](6.jpeg)
+   ![6](img/6.jpeg)
 
    **Ejemplos de peticiones**
    - Listar todos los productos  
