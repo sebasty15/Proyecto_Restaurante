@@ -27,8 +27,8 @@ db = SQLAlchemy(app)
 load_dotenv()
 MONGO_URI = os.getenv('MONGO_URI', 'mongodb://localhost:27017/')
 mongo_client = MongoClient(MONGO_URI)
-mongo_db = mongo_client['restaurante_promociones']
-mensajes_collection = mongo_db['mensajes_promocionales']
+mongo_db = mongo_client['restaurante_mensajes']
+mensajes_collection = mongo_db['mensajes']
 
 # ============================================================
 # CONFIGURACIÓN JWT
