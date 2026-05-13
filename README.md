@@ -48,9 +48,11 @@ Diseñada para la gestión de pedidos, facturación, reportes y envío de mensaj
    /registro
    /panel
    ![5](img/5.jpeg)
+   ![8](img/8.jpeg)
+   ![9](img/9.jpeg)
 
 
-6. Probar los endpoints  
+7. Probar los endpoints  
    Puedes usar Postman para probar los diferentes endpoints.
    ![6](img/6.jpeg)
 
