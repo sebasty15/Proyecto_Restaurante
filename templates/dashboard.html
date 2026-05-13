@@ -1,0 +1,614 @@
+{% extends "base.html" %}
+{% block title %}Panel - {{ usuario.nombre }}{% endblock %}
+{% block content %}
+<h2 class="mb-3">Panel de {{ usuario.rol|capitalize }}</h2>
+<div class="alert alert-info">Bienvenido/a <strong>{{ usuario.nombre }}</strong>. Rol: {{ usuario.rol }}.</div>
+
+<ul class="nav nav-tabs mb-4" id="menuTabs">
+    {% if usuario.rol in ('admin',) %}
+    <li class="nav-item"><a class="nav-link active" data-bs-toggle="tab" href="#productos">Productos</a></li>
+    <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#usuarios">Usuarios</a></li>
+    {% endif %}
+    {% if usuario.rol in ('mesero', 'admin') %}
+    <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#pedidos">Nuevo Pedido</a></li>
+    <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#pedidos-mesero">Entregas</a></li>
+    {% endif %}
+    {% if usuario.rol in ('cocinero', 'admin') %}
+    <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#cocina">Cocina</a></li>
+    {% endif %}
+    {% if usuario.rol in ('cajero', 'admin') %}
+    <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#facturacion">Facturación</a></li>
+    {% endif %}
+    {% if usuario.rol in ('admin', 'cajero') %}
+    <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#reportes">Reportes</a></li>
+    {% endif %}
+</ul>
+
+<div class="tab-content" id="tabContent">
+    {% if usuario.rol == 'admin' %}
+    <div class="tab-pane fade show active" id="productos">
+        <h4>Gestión de Productos</h4>
+        <button class="btn btn-success mb-3" onclick="mostrarFormProducto()">Nuevo Producto</button>
+        <div id="listaProductos" class="table-responsive"></div>
+        <div id="formProducto" style="display:none;" class="card card-body mb-3">
+            <h5 id="tituloFormProducto">Nuevo Producto</h5>
+            <input type="hidden" id="editIdProducto">
+            <div class="mb-3">
+                <label class="form-label">Nombre</label>
+                <input class="form-control" id="prodNombre">
+            </div>
+            <div class="mb-3">
+                <label class="form-label">Precio</label>
+                <input type="number" step="0.01" class="form-control" id="prodPrecio">
+            </div>
+            <div class="mb-3">
+                <label class="form-label">Categoría (ID)</label>
+                <input type="number" class="form-control" id="prodCategoria">
+            </div>
+            <div>
+                <button class="btn btn-primary" onclick="guardarProducto()">Guardar</button>
+                <button class="btn btn-secondary" onclick="cancelarFormProducto()">Cancelar</button>
+            </div>
+        </div>
+    </div>
+    <div class="tab-pane fade" id="usuarios">
+        <h4>Gestión de Usuarios</h4>
+        <div id="listaUsuarios" class="table-responsive"></div>
+        <!-- Modal para editar usuario -->
+        <div class="modal fade" id="modalUsuario" tabindex="-1" aria-labelledby="modalUsuarioLabel" aria-hidden="true">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="modalUsuarioLabel">Editar Usuario</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                    </div>
+                    <div class="modal-body">
+                        <input type="hidden" id="editUserId">
+                        <div class="mb-3">
+                            <label class="form-label">Nombre</label>
+                            <input type="text" class="form-control" id="editNombre">
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Apellido</label>
+                            <input type="text" class="form-control" id="editApellido">
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Email</label>
+                            <input type="email" class="form-control" id="editEmail">
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Teléfono</label>
+                            <input type="text" class="form-control" id="editTelefono">
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Rol</label>
+                            <select class="form-select" id="editRol">
+                                <option value="admin">Admin</option>
+                                <option value="mesero">Mesero</option>
+                                <option value="cocinero">Cocinero</option>
+                                <option value="cajero">Cajero</option>
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Nueva contraseña (dejar en blanco para mantener)</label>
+                            <input type="password" class="form-control" id="editPassword">
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                        <button type="button" class="btn btn-primary" onclick="guardarUsuario()">Guardar Cambios</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    {% if usuario.rol in ('mesero', 'admin') %}
+    <div class="tab-pane fade" id="pedidos">
+        <h4>Crear Nuevo Pedido</h4>
+        <div class="row">
+            <div class="col-md-6">
+                <label class="form-label">Mesa (ID)</label>
+                <input type="number" id="mesaPedido" class="form-control mb-2">
+                <label class="form-label">Notas</label>
+                <textarea id="notasPedido" class="form-control mb-3"></textarea>
+                <h5>Productos</h5>
+                <div id="itemsPedido"></div>
+                <button class="btn btn-outline-secondary btn-sm" onclick="agregarItem()">+ Agregar producto</button>
+                <hr>
+                <button class="btn btn-primary" onclick="enviarPedido()">Enviar Pedido</button>
+                <div id="mensajePedido" class="mt-2"></div>
+            </div>
+            <div class="col-md-6">
+                <h5>Lista de Productos Disponibles</h5>
+                <ul id="listaProductosDisponibles" class="list-group"></ul>
+            </div>
+        </div>
+    </div>
+
+    <div class="tab-pane fade" id="pedidos-mesero">
+        <h4>Pedidos para entregar</h4>
+        <div id="pedidosMesero">Cargando...</div>
+    </div>
+    {% endif %}
+
+    {% if usuario.rol in ('cocinero', 'admin') %}
+    <div class="tab-pane fade" id="cocina">
+        <h4>Pedidos en Cocina</h4>
+        <div id="pedidosCocina" class="table-responsive"></div>
+    </div>
+    {% endif %}
+
+    {% if usuario.rol in ('cajero', 'admin') %}
+    <div class="tab-pane fade" id="facturacion">
+        <h4>Facturación</h4>
+        <div class="row">
+            <div class="col-md-6">
+                <h5>Generar Factura</h5>
+                <label class="form-label">Pedido (ID)</label>
+                <input type="number" id="pedidoFactura" class="form-control mb-2">
+                <label class="form-label">Cliente (ID)</label>
+                <input type="number" id="clienteFactura" class="form-control mb-2">
+                <label class="form-label">Servicio voluntario</label>
+                <input type="number" step="0.01" id="servicioFactura" class="form-control mb-2" value="0">
+                <button class="btn btn-primary" onclick="generarFactura()">Generar Factura</button>
+                <div id="mensajeFactura" class="mt-2"></div>
+            </div>
+            <div class="col-md-6">
+                <h5>Facturas Pendientes de Pago</h5>
+                <div id="listaFacturasPendientes">Cargando...</div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    {% if usuario.rol in ('admin', 'cajero') %}
+    <div class="tab-pane fade" id="reportes">
+        <h4>Reporte de Ventas</h4>
+        <div class="row mb-3">
+            <div class="col-md-4">
+                <label>Fecha inicio</label>
+                <input type="date" id="fechaInicio" class="form-control">
+            </div>
+            <div class="col-md-4">
+                <label>Fecha fin</label>
+                <input type="date" id="fechaFin" class="form-control">
+            </div>
+            <div class="col-md-4 d-flex align-items-end">
+                <button class="btn btn-primary" onclick="cargarReporte()">Consultar</button>
+            </div>
+        </div>
+        <div id="resultadoReporte"></div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+    const ROL = "{{ usuario.rol }}";
+
+    document.addEventListener('DOMContentLoaded', () => {
+        if (ROL === 'admin') {
+            cargarProductos();
+            cargarPedidosCocina();
+            cargarFacturasPendientes();
+            cargarPedidosMesero();
+            cargarUsuarios();
+        }
+        if (ROL === 'cocinero') cargarPedidosCocina();
+        if (ROL === 'cajero') cargarFacturasPendientes();
+        if (ROL === 'mesero') {
+            cargarProductosDisponibles();
+            cargarPedidosMesero();
+        }
+    });
+
+    // ---------- PRODUCTOS (Admin) ----------
+    async function cargarProductos() {
+        const res = await apiFetch('/api/productos');
+        const prods = await res.json();
+        let html = `<table class="table table-striped"><thead><tr><th>ID</th><th>Nombre</th><th>Precio</th><th>Categoría</th><th>Acciones</th></tr></thead><tbody>`;
+        prods.forEach(p => {
+            html += `<tr><td>${p.IdProducto}</td><td>${p.NombreProducto}</td><td>$${p.Precio.toFixed(2)}</td><td>${p.Categoria || p.IdCategoria}</td><td>
+                <button class="btn btn-sm btn-warning" onclick="editarProducto(${p.IdProducto})">Editar</button>
+                <button class="btn btn-sm btn-danger" onclick="eliminarProducto(${p.IdProducto})">Eliminar</button>
+            </td></tr>`;
+        });
+        html += '</tbody></table>';
+        document.getElementById('listaProductos').innerHTML = html;
+    }
+
+    function mostrarFormProducto(id = null) {
+        document.getElementById('formProducto').style.display = 'block';
+        if (id) {
+            document.getElementById('tituloFormProducto').textContent = 'Editar Producto';
+        } else {
+            document.getElementById('tituloFormProducto').textContent = 'Nuevo Producto';
+            document.getElementById('editIdProducto').value = '';
+            document.getElementById('prodNombre').value = '';
+            document.getElementById('prodPrecio').value = '';
+            document.getElementById('prodCategoria').value = '';
+        }
+    }
+
+    async function guardarProducto() {
+        const id = document.getElementById('editIdProducto').value;
+        const data = {
+            NombreProducto: document.getElementById('prodNombre').value,
+            Precio: parseFloat(document.getElementById('prodPrecio').value),
+            IdCategoria: parseInt(document.getElementById('prodCategoria').value)
+        };
+        const url = id ? `/api/productos/${id}` : '/api/productos';
+        const method = id ? 'PUT' : 'POST';
+        const res = await apiFetch(url, {
+            method,
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        });
+        if (res.ok) {
+            cancelarFormProducto();
+            cargarProductos();
+        } else {
+            const err = await res.json();
+            alert(err.error || 'Error');
+        }
+    }
+
+    function cancelarFormProducto() {
+        document.getElementById('formProducto').style.display = 'none';
+    }
+
+    async function eliminarProducto(id) {
+        if (!confirm('¿Eliminar producto?')) return;
+        const res = await apiFetch(`/api/productos/${id}`, { method: 'DELETE' });
+        if (res.ok) cargarProductos();
+        else alert(await res.json().then(d => d.error));
+    }
+
+    async function editarProducto(id) {
+        const res = await apiFetch('/api/productos');
+        const prods = await res.json();
+        const prod = prods.find(p => p.IdProducto === id);
+        if (!prod) return;
+        mostrarFormProducto(id);
+        document.getElementById('editIdProducto').value = id;
+        document.getElementById('prodNombre').value = prod.NombreProducto;
+        document.getElementById('prodPrecio').value = prod.Precio;
+        document.getElementById('prodCategoria').value = prod.IdCategoria;
+    }
+
+    // ---------- USUARIOS (Admin) ----------
+    async function cargarUsuarios() {
+        const res = await apiFetch('/api/usuarios');
+        const usuarios = await res.json();
+        let html = `<table class="table table-bordered"><thead><tr><th>ID</th><th>Nombre</th><th>Email</th><th>Rol</th><th>Teléfono</th><th>Acciones</th></tr></thead><tbody>`;
+        usuarios.forEach(u => {
+            html += `<tr>
+                <td>${u.id}</td>
+                <td>${u.nombre} ${u.apellido || ''}</td>
+                <td>${u.email}</td>
+                <td>${u.rol}</td>
+                <td>${u.telefono || ''}</td>
+                <td>
+                    <button class="btn btn-sm btn-warning" onclick="editarUsuario(${u.id})">Editar</button>
+                    <button class="btn btn-sm btn-danger" onclick="eliminarUsuario(${u.id})">Eliminar</button>
+                </td>
+            </tr>`;
+        });
+        html += '</tbody></table>';
+        document.getElementById('listaUsuarios').innerHTML = html;
+    }
+
+    async function editarUsuario(id) {
+        const res = await apiFetch('/api/usuarios');
+        const usuarios = await res.json();
+        const u = usuarios.find(u => u.id === id);
+        if (!u) return;
+        document.getElementById('editUserId').value = u.id;
+        document.getElementById('editNombre').value = u.nombre;
+        document.getElementById('editApellido').value = u.apellido || '';
+        document.getElementById('editEmail').value = u.email;
+        document.getElementById('editTelefono').value = u.telefono || '';
+        document.getElementById('editRol').value = u.rol;
+        document.getElementById('editPassword').value = '';
+        const modal = new bootstrap.Modal(document.getElementById('modalUsuario'));
+        modal.show();
+    }
+
+    async function guardarUsuario() {
+        const id = document.getElementById('editUserId').value;
+        const data = {
+            nombre: document.getElementById('editNombre').value,
+            apellido: document.getElementById('editApellido').value,
+            email: document.getElementById('editEmail').value,
+            telefono: document.getElementById('editTelefono').value,
+            rol: document.getElementById('editRol').value
+        };
+        const password = document.getElementById('editPassword').value;
+        if (password) data.password = password;
+
+        const res = await apiFetch(`/api/usuarios/${id}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        });
+        if (res.ok) {
+            bootstrap.Modal.getInstance(document.getElementById('modalUsuario')).hide();
+            cargarUsuarios();
+        } else {
+            const err = await res.json();
+            alert(err.error || 'Error al actualizar');
+        }
+    }
+
+    async function eliminarUsuario(id) {
+        if (!confirm('¿Eliminar usuario? Esta acción no se puede deshacer.')) return;
+        const res = await apiFetch(`/api/usuarios/${id}`, { method: 'DELETE' });
+        if (res.ok) {
+            cargarUsuarios();
+        } else {
+            const err = await res.json();
+            alert(err.error || 'Error al eliminar');
+        }
+    }
+
+    // ---------- PEDIDOS (Mesero) ----------
+    let itemsPedido = [];
+
+    function agregarItem() {
+        itemsPedido.push({ IdProducto: '', Cantidad: 1 });
+        renderItems();
+    }
+
+    function quitarItem(index) {
+        itemsPedido.splice(index, 1);
+        renderItems();
+    }
+
+    function renderItems() {
+        const div = document.getElementById('itemsPedido');
+        div.innerHTML = itemsPedido.map((item, i) => `
+            <div class="input-group mb-2">
+                <span class="input-group-text">ID Prod.</span>
+                <input type="text" inputmode="numeric" pattern="[0-9]*" class="form-control" placeholder="Ej: 5" value="${item.IdProducto || ''}" onchange="itemsPedido[${i}].IdProducto = parseInt(this.value) || 0">
+                <span class="input-group-text">Cant.</span>
+                <input type="number" class="form-control" placeholder="1" value="${item.Cantidad}" min="1" onchange="itemsPedido[${i}].Cantidad = parseInt(this.value) || 1">
+                <button class="btn btn-outline-danger" type="button" onclick="quitarItem(${i})">✕</button>
+            </div>
+        `).join('');
+    }
+
+    async function cargarProductosDisponibles() {
+        const res = await apiFetch('/api/productos');
+        const prods = await res.json();
+        const ul = document.getElementById('listaProductosDisponibles');
+        ul.innerHTML = prods.map(p => `<li class="list-group-item">ID:${p.IdProducto} - ${p.NombreProducto} $${p.Precio}</li>`).join('');
+    }
+
+    async function enviarPedido() {
+        const mesa = parseInt(document.getElementById('mesaPedido').value);
+        const notas = document.getElementById('notasPedido').value;
+        if (!mesa || itemsPedido.length === 0) {
+            document.getElementById('mensajePedido').innerHTML = '<div class="alert alert-warning">Completa mesa y al menos un producto</div>';
+            return;
+        }
+        const res = await apiFetch('/api/pedidos', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ IdMesa: mesa, Notas: notas, productos: itemsPedido })
+        });
+        const data = await res.json();
+        if (res.ok) {
+            document.getElementById('mensajePedido').innerHTML = `<div class="alert alert-success">Pedido #${data.IdPedido} creado exitosamente</div>`;
+            itemsPedido = [];
+            renderItems();
+        } else {
+            document.getElementById('mensajePedido').innerHTML = `<div class="alert alert-danger">${data.mensaje || 'Error'}</div>`;
+        }
+    }
+
+    // ---------- ENTREGAS (Mesero) ----------
+    async function cargarPedidosMesero() {
+        const div = document.getElementById('pedidosMesero');
+        div.innerHTML = 'Cargando...';
+        try {
+            const res = await apiFetch('/api/pedidos/mesero');
+            if (!res.ok) {
+                const err = await res.json();
+                div.innerHTML = `<div class="alert alert-danger">${err.error || 'Error al cargar'}</div>`;
+                return;
+            }
+            const pedidos = await res.json();
+            if (!pedidos.length) {
+                div.innerHTML = '<div class="alert alert-info">No hay pedidos para entregar.</div>';
+                return;
+            }
+            let html = '';
+            pedidos.forEach(p => {
+                const productos = p.items.map(i => `<li>${i.NombreProducto} x${i.Cantidad}</li>`).join('');
+                html += `
+                <div class="card mb-2">
+                    <div class="card-body">
+                        <h5>Pedido #${p.IdPedido} - Mesa ${p.Mesa}</h5>
+                        <p><strong>Estado:</strong> ${p.Estado} | <strong>Total:</strong> $${p.TotalPedido.toFixed(2)}</p>
+                        <p><strong>Notas:</strong> ${p.Notas || 'Ninguna'}</p>
+                        <ul>${productos}</ul>
+                        ${p.Estado === 'listo' ? `<button class="btn btn-success" onclick="entregarPedido(${p.IdPedido})">Marcar como Entregado</button>` : ''}
+                    </div>
+                </div>`;
+            });
+            div.innerHTML = html;
+        } catch (error) {
+            div.innerHTML = `<div class="alert alert-danger">Error: ${error.message}</div>`;
+        }
+    }
+
+    async function entregarPedido(id) {
+        const res = await apiFetch(`/api/pedidos/${id}/estado`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ estado: 'entregado' })
+        });
+        const data = await res.json();
+        if (res.ok) {
+            alert(`Pedido #${id} marcado como entregado.`);
+            cargarPedidosMesero();
+        } else {
+            alert(data.mensaje || 'Error al entregar');
+        }
+    }
+
+    // ---------- COCINA ----------
+    async function cargarPedidosCocina() {
+        const res = await apiFetch('/api/pedidos/cocina');
+        const pedidos = await res.json();
+        let html = '';
+        pedidos.forEach(p => {
+            html += `<div class="card mb-2"><div class="card-body">
+                <h5>Pedido #${p.IdPedido} - Mesa ${p.Mesa}</h5>
+                <p>Estado: <strong>${p.Estado}</strong> | Total: $${p.TotalPedido.toFixed(2)}</p>
+                <ul>${p.items.map(i => `<li>${i.NombreProducto} x${i.Cantidad}</li>`).join('')}</ul>
+                <select id="estadoPedido_${p.IdPedido}" class="form-select form-select-sm">
+                    <option value="pendiente" ${p.Estado==='pendiente'?'selected':''}>Pendiente</option>
+                    <option value="en preparación" ${p.Estado==='en preparación'?'selected':''}>En preparación</option>
+                    <option value="listo" ${p.Estado==='listo'?'selected':''}>Listo</option>
+                </select>
+                <button class="btn btn-sm btn-primary mt-1" onclick="cambiarEstadoPedido(${p.IdPedido})">Actualizar</button>
+            </div></div>`;
+        });
+        if (!pedidos.length) html = '<div class="alert alert-info">No hay pedidos pendientes.</div>';
+        document.getElementById('pedidosCocina').innerHTML = html;
+    }
+
+    async function cambiarEstadoPedido(id) {
+        const estado = document.getElementById(`estadoPedido_${id}`).value;
+        const res = await apiFetch(`/api/pedidos/${id}/estado`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ estado })
+        });
+        if (res.ok) cargarPedidosCocina();
+        else alert('Error al actualizar');
+    }
+
+    // ---------- FACTURACIÓN ----------
+    async function generarFactura() {
+        const idPedido = parseInt(document.getElementById('pedidoFactura').value);
+        const idCliente = parseInt(document.getElementById('clienteFactura').value);
+        const servicio = parseFloat(document.getElementById('servicioFactura').value) || 0;
+        const res = await apiFetch('/api/facturas', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ IdPedido: idPedido, IdCliente: idCliente, ServicioVoluntario: servicio })
+        });
+        const data = await res.json();
+        if (res.ok) {
+            document.getElementById('mensajeFactura').innerHTML = `<div class="alert alert-success">Factura #${data.IdFactura} generada. Total: $${data.TotalFactura}</div>`;
+            cargarFacturasPendientes();
+        } else {
+            document.getElementById('mensajeFactura').innerHTML = `<div class="alert alert-danger">${data.mensaje || 'Error'}</div>`;
+        }
+    }
+
+    async function cargarFacturasPendientes() {
+        const div = document.getElementById('listaFacturasPendientes');
+        div.innerHTML = 'Cargando...';
+        try {
+            const res = await apiFetch('/api/facturas/pendientes');
+            if (!res.ok) {
+                const err = await res.json();
+                div.innerHTML = `<div class="alert alert-danger">${err.error || 'No se pudo cargar'}</div>`;
+                return;
+            }
+            const facturas = await res.json();
+            if (!facturas.length) {
+                div.innerHTML = '<div class="alert alert-info">No hay facturas pendientes.</div>';
+                return;
+            }
+            let html = '';
+            facturas.forEach(f => {
+                html += `
+                <div class="card mb-3" id="factura_${f.IdFactura}">
+                    <div class="card-body">
+                        <h6>Factura #${f.IdFactura} - Mesa ${f.Mesa}</h6>
+                        <p><strong>Cliente:</strong> ${f.Cliente || 'N/A'}<br>
+                        <strong>Total:</strong> $${f.TotalFactura.toFixed(2)}<br>
+                        <strong>Servicio Voluntario:</strong> $${f.ServicioVoluntario.toFixed(2)}</p>
+                        <div class="input-group mb-2">
+                            <span class="input-group-text">Método de pago</span>
+                            <select class="form-select" id="metodo_${f.IdFactura}">
+                                <option value="efectivo">Efectivo</option>
+                                <option value="tarjeta">Tarjeta</option>
+                                <option value="transferencia">Transferencia</option>
+                            </select>
+                        </div>
+                        <div class="input-group mb-2">
+                            <span class="input-group-text">Monto recibido</span>
+                            <input type="number" step="0.01" class="form-control" id="monto_${f.IdFactura}" placeholder="$">
+                        </div>
+                        <button class="btn btn-success btn-sm" onclick="pagarFactura(${f.IdFactura})">Pagar</button>
+                        <button class="btn btn-danger btn-sm ms-1" onclick="anularFactura(${f.IdFactura})">Anular</button>
+                    </div>
+                </div>`;
+            });
+            div.innerHTML = html;
+        } catch (error) {
+            div.innerHTML = `<div class="alert alert-danger">Error: ${error.message}</div>`;
+        }
+    }
+
+    async function pagarFactura(id) {
+        const metodo = document.getElementById(`metodo_${id}`).value;
+        const monto = parseFloat(document.getElementById(`monto_${id}`).value);
+        if (!monto || isNaN(monto)) {
+            alert('Ingresá un monto válido');
+            return;
+        }
+        const res = await apiFetch(`/api/facturas/${id}/pagar`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ MetodoPago: metodo, MontoRecibido: monto })
+        });
+        const data = await res.json();
+        if (res.ok) {
+            alert(`Pago exitoso. Cambio: $${data.cambio.toFixed(2)}`);
+            cargarFacturasPendientes();
+        } else {
+            alert(data.mensaje || 'Error al pagar');
+        }
+    }
+
+    async function anularFactura(id) {
+        if (!confirm('¿Anular esta factura? El pedido volverá a "entregado" y podrá facturarse de nuevo.')) return;
+        const res = await apiFetch(`/api/facturas/${id}/anular`, { method: 'PUT' });
+        const data = await res.json();
+        if (res.ok) {
+            alert(data.mensaje);
+            cargarFacturasPendientes();
+        } else {
+            alert(data.mensaje || 'Error al anular');
+        }
+    }
+
+    // ---------- REPORTES ----------
+    async function cargarReporte() {
+        const inicio = document.getElementById('fechaInicio').value;
+        const fin = document.getElementById('fechaFin').value;
+        if (!inicio || !fin) return alert('Seleccioná ambas fechas');
+        const res = await apiFetch(`/api/reportes/ventas?fecha_inicio=${inicio}&fecha_fin=${fin}`);
+        const data = await res.json();
+        if (res.ok) {
+            let html = `<p><strong>Ingresos totales:</strong> $${data.ingresos_totales.toFixed(2)}</p>`;
+            html += `<p><strong>Cantidad de facturas:</strong> ${data.cantidad_facturas}</p>`;
+            html += `<h5>Platos más vendidos</h5><ul>`;
+            data.platos_mas_vendidos.forEach(p => html += `<li>${p.producto}: ${p.cantidad} unidades</li>`);
+            html += `</ul>`;
+            document.getElementById('resultadoReporte').innerHTML = html;
+        } else {
+            document.getElementById('resultadoReporte').innerHTML = `<div class="alert alert-danger">${data.mensaje || 'Error'}</div>`;
+        }
+    }
+</script>
+{% endblock %}

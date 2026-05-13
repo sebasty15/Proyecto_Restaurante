@@ -1,0 +1,73 @@
+{% extends "base.html" %}
+{% block title %}Registro{% endblock %}
+{% set usuario = None %}
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-6">
+        <h2 class="mb-4">Crear Cuenta</h2>
+        <form id="registroForm">
+            <div class="row">
+                <div class="col-md-6 mb-3">
+                    <label for="nombre" class="form-label">Nombre</label>
+                    <input type="text" class="form-control" id="nombre" required>
+                </div>
+                <div class="col-md-6 mb-3">
+                    <label for="apellido" class="form-label">Apellido</label>
+                    <input type="text" class="form-control" id="apellido">
+                </div>
+            </div>
+            <div class="mb-3">
+                <label for="email" class="form-label">Email</label>
+                <input type="email" class="form-control" id="email" required>
+            </div>
+            <div class="mb-3">
+                <label for="telefono" class="form-label">Teléfono</label>
+                <input type="text" class="form-control" id="telefono">
+            </div>
+            <div class="row">
+                <div class="col-md-6 mb-3">
+                    <label for="password" class="form-label">Contraseña</label>
+                    <input type="password" class="form-control" id="password" required>
+                </div>
+                <div class="col-md-6 mb-3">
+                    <label for="rol" class="form-label">Rol</label>
+                    <select class="form-select" id="rol">
+                        <option value="mesero">Mesero</option>
+                        <option value="cocinero">Cocinero</option>
+                        <option value="cajero">Cajero</option>
+                    </select>
+                </div>
+            </div>
+            <button type="submit" class="btn btn-success">Registrarse</button>
+            <a href="/login" class="btn btn-link">Ya tengo cuenta</a>
+        </form>
+        <div id="mensaje" class="mt-3"></div>
+    </div>
+</div>
+{% endblock %}
+{% block extra_scripts %}
+<script>
+    document.getElementById('registroForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const nombre = document.getElementById('nombre').value;
+        const apellido = document.getElementById('apellido').value;
+        const email = document.getElementById('email').value;
+        const telefono = document.getElementById('telefono').value;
+        const password = document.getElementById('password').value;
+        const rol = document.getElementById('rol').value;
+
+        const res = await apiFetch('/api/registro', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ nombre, apellido, email, telefono, password, rol })
+        });
+        const data = await res.json();
+        const div = document.getElementById('mensaje');
+        if (res.ok) {
+            div.innerHTML = `<div class="alert alert-success">${data.mensaje} <a href="/login">Ir al inicio de sesión</a></div>`;
+        } else {
+            div.innerHTML = `<div class="alert alert-danger">${data.error}</div>`;
+        }
+    });
+</script>
+{% endblock %}
