@@ -1,5 +1,6 @@
 import sqlite3
 import datetime
+from werkzeug.security import generate_password_hash
 
 def setup_database():
     try:
@@ -7,7 +8,7 @@ def setup_database():
         cursor = conn.cursor()
         cursor.execute("PRAGMA foreign_keys = ON;")
 
-        # Tabla Usuario (reemplaza a Mesero)
+        # Tabla Usuario
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS Usuario (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -93,7 +94,7 @@ def setup_database():
             )
         ''')
 
-        # Tabla Factura
+        # Tabla Factura (¡con el nuevo campo Estado!)
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS Factura (
                 IdFactura INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -103,6 +104,7 @@ def setup_database():
                 MetodoPago TEXT CHECK(MetodoPago IN ('efectivo', 'tarjeta', 'transferencia')),
                 ServicioVoluntario DECIMAL(10,2) DEFAULT 0 CHECK(ServicioVoluntario >= 0),
                 TotalFactura DECIMAL(10,2) NOT NULL CHECK(TotalFactura >= 0),
+                Estado TEXT DEFAULT 'pendiente' CHECK(Estado IN ('pendiente', 'pagada', 'anulada')),
                 FOREIGN KEY (IdPedido) REFERENCES Pedido(IdPedido) ON DELETE RESTRICT,
                 FOREIGN KEY (IdCliente) REFERENCES Clientes(IdCliente) ON DELETE RESTRICT
             )
@@ -118,7 +120,7 @@ def setup_database():
             conn.close()
 
 def seed_data(cursor):
-    # Limpiar tablas (orden inverso)
+    # Limpiar tablas (orden inverso para respetar claves foráneas)
     cursor.execute("DELETE FROM Factura")
     cursor.execute("DELETE FROM DetallePedido")
     cursor.execute("DELETE FROM Pedido")
@@ -132,7 +134,7 @@ def seed_data(cursor):
     for tabla in ['Usuario', 'Categoria', 'Producto', 'Mesa', 'Pedido', 'DetallePedido', 'Clientes', 'Factura']:
         cursor.execute(f"DELETE FROM sqlite_sequence WHERE name='{tabla}'")
 
-    # Categorías
+    # 1. Categorías
     categorias = [("Entradas",), ("Platos fuertes",), ("Bebidas",), ("Postres",)]
     for (nombre,) in categorias:
         cursor.execute("INSERT INTO Categoria (NombreCategoria) VALUES (?)", (nombre,))
@@ -140,7 +142,7 @@ def seed_data(cursor):
     cursor.execute("SELECT IdCategoria, NombreCategoria FROM Categoria")
     cat_map = {nombre: id for id, nombre in cursor.fetchall()}
 
-    # Productos
+    # 2. Productos
     productos = [
         ("Ensalada César", cat_map["Entradas"], 9.90),
         ("Papas fritas", cat_map["Entradas"], 5.50),
@@ -154,31 +156,34 @@ def seed_data(cursor):
         cursor.execute("INSERT INTO Producto (NombreProducto, IdCategoria, Precio) VALUES (?, ?, ?)",
                        (nombre, id_cat, precio))
 
-    # Mesas
+    # 3. Mesas
     mesas = [(4, 'libre'), (2, 'libre'), (6, 'libre'), (4, 'libre'), (8, 'libre')]
     for capacidad, estado in mesas:
         cursor.execute("INSERT INTO Mesa (Capacidad, Estado) VALUES (?, ?)", (capacidad, estado))
 
-    # Usuarios (meseros y cajero)
+    # 4. Usuarios (incluyendo admin, meseros, cocinero y cajero)
     usuarios = [
+        ("Admin", "Principal", "3000000000", "admin", "admin@restaurante.com", "admin123"),
         ("Juan", "Pérez", "3001111111", "mesero", "juan@resto.com", "1234"),
         ("Ana", "Gómez", "3002222222", "mesero", "ana@resto.com", "1234"),
+        ("Pedro", "Cocina", "3004444444", "cocinero", "pedro@resto.com", "1234"),
         ("Carlos", "López", "3003333333", "cajero", "carlos@resto.com", "1234")
     ]
     for nombre, apellido, telefono, rol, email, pwd in usuarios:
+        hashed_pwd = generate_password_hash(pwd)
         cursor.execute('''
             INSERT INTO Usuario (nombre, apellido, telefono, rol, email, password)
             VALUES (?, ?, ?, ?, ?, ?)
-        ''', (nombre, apellido, telefono, rol, email, pwd))
+        ''', (nombre, apellido, telefono, rol, email, hashed_pwd))
 
-    # Cliente ejemplo
+    # 5. Cliente de ejemplo
     cursor.execute('''
         INSERT INTO Clientes (TipoDocumento, NumeroDocumento, Nombre, Apellido, Email, Telefono, Direccion, Ciudad)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?)
     ''', ('Cédula', '12345678', 'Carlos', 'López', 'carlos@mail.com', '3003334444', 'Calle Falsa 123', 'Bogotá'))
     id_cliente = cursor.lastrowid
 
-    # Pedido ejemplo
+    # 6. Pedido de ejemplo (estado 'entregado' para poder facturarlo)
     cursor.execute("SELECT id FROM Usuario WHERE rol='mesero' LIMIT 1")
     mesero_id = cursor.fetchone()[0]
     cursor.execute("SELECT IdMesa FROM Mesa WHERE Estado='libre' LIMIT 1")
@@ -190,7 +195,7 @@ def seed_data(cursor):
     ''', (mesero_id, mesa_id, "Ejemplo de pedido"))
     pedido_id = cursor.lastrowid
 
-    # Detalles
+    # 7. Detalles del pedido
     cursor.execute("SELECT IdProducto, Precio FROM Producto WHERE NombreProducto = 'Hamburguesa Clásica'")
     prod_id, precio = cursor.fetchone()
     cantidad = 2
@@ -205,16 +210,16 @@ def seed_data(cursor):
     cursor.execute("INSERT INTO DetallePedido (IdPedido, IdProducto, Cantidad, Subtotal) VALUES (?, ?, ?, ?)",
                    (pedido_id, prod_id, cantidad, subtotal))
 
-    # Actualizar total pedido
+    # Actualizar total del pedido
     cursor.execute('''
         UPDATE Pedido SET TotalPedido = (SELECT SUM(Subtotal) FROM DetallePedido WHERE IdPedido = ?)
         WHERE IdPedido = ?
     ''', (pedido_id, pedido_id))
 
-    # Factura ejemplo
+    # 8. Factura de ejemplo (estado 'pagada' para no aparecer como pendiente)
     cursor.execute('''
-        INSERT INTO Factura (IdPedido, IdCliente, MetodoPago, ServicioVoluntario, TotalFactura)
-        VALUES (?, ?, 'efectivo', 0.0, (SELECT TotalPedido FROM Pedido WHERE IdPedido = ?))
+        INSERT INTO Factura (IdPedido, IdCliente, MetodoPago, ServicioVoluntario, TotalFactura, Estado)
+        VALUES (?, ?, 'efectivo', 0.0, (SELECT TotalPedido FROM Pedido WHERE IdPedido = ?), 'pagada')
     ''', (pedido_id, id_cliente, pedido_id))
 
     print("Datos de ejemplo insertados correctamente.")
