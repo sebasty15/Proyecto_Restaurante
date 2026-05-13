@@ -41,11 +41,15 @@ Diseñada para la gestión de pedidos, facturación, reportes y envío de mensaj
 4. Ejecutar el archivo `app.py`  
    bash
    python app.py
-   
+
+5. Probar las distintas rutas definidas en la app.py
+   /login
+   /registro
+   /panel
 
 
 
-5. Probar los endpoints  
+6. Probar los endpoints  
    Puedes usar Postman para probar los diferentes endpoints.
 
    **Ejemplos de peticiones**
